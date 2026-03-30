@@ -1,0 +1,327 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>MindMatch FAQ Assistant</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: system-ui, sans-serif; background: #f5f5f5; display: flex; justify-content: center; padding: 2rem 1rem; min-height: 100vh; }
+  .container { width: 100%; max-width: 860px; }
+  .header { margin-bottom: 1.5rem; }
+  .header h1 { font-size: 20px; font-weight: 600; color: #111; }
+  .header p { font-size: 13px; color: #666; margin-top: 4px; }
+  .tabs { display: flex; gap: 4px; border-bottom: 1px solid #e0e0e0; margin-bottom: 1.5rem; }
+  .tab { padding: 8px 16px; cursor: pointer; font-size: 13px; font-weight: 500; color: #666; border: none; background: none; border-bottom: 2px solid transparent; margin-bottom: -1px; }
+  .tab.active { color: #111; border-bottom-color: #111; }
+  .panel { display: none; }
+  .panel.active { display: block; }
+
+  /* Chat */
+  .chat-window { background: #fff; border: 1px solid #e0e0e0; border-radius: 12px; overflow: hidden; display: flex; flex-direction: column; }
+  .chat-messages { padding: 1.25rem; display: flex; flex-direction: column; gap: 12px; min-height: 320px; max-height: 400px; overflow-y: auto; }
+  .msg { max-width: 82%; padding: 10px 14px; border-radius: 12px; font-size: 14px; line-height: 1.55; }
+  .msg.user { align-self: flex-end; background: #e8f0fe; color: #1a3c8f; border-bottom-right-radius: 4px; }
+  .msg.bot { align-self: flex-start; background: #f9f9f9; border: 1px solid #e0e0e0; color: #111; border-bottom-left-radius: 4px; }
+  .msg.thinking { opacity: 0.6; font-style: italic; }
+  .source-chips { display: flex; flex-wrap: wrap; gap: 4px; margin-top: 8px; }
+  .chip { font-size: 11px; padding: 2px 8px; border-radius: 99px; background: #f0f0f0; color: #555; border: 1px solid #ddd; }
+  .suggestions { display: flex; flex-wrap: wrap; gap: 6px; padding: 8px 12px 0; }
+  .sug-btn { font-size: 12px; padding: 4px 10px; border-radius: 99px; border: 1px solid #ccc; background: none; color: #555; cursor: pointer; }
+  .sug-btn:hover { background: #f0f0f0; color: #111; }
+  .chat-input-row { display: flex; gap: 8px; padding: 12px; border-top: 1px solid #e0e0e0; background: #fff; }
+  .chat-input-row input { flex: 1; padding: 8px 12px; border: 1px solid #ccc; border-radius: 8px; font-size: 14px; outline: none; }
+  .chat-input-row input:focus { border-color: #888; }
+  .chat-input-row button { padding: 8px 16px; background: #111; color: #fff; border: none; border-radius: 8px; font-size: 13px; font-weight: 500; cursor: pointer; }
+  .chat-input-row button:disabled { opacity: 0.4; cursor: default; }
+
+  /* Admin */
+  .admin-bar { display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; }
+  .admin-bar span { font-size: 14px; font-weight: 500; }
+  .add-btn { padding: 7px 14px; background: #111; color: #fff; border: none; border-radius: 8px; font-size: 13px; cursor: pointer; }
+  table { width: 100%; border-collapse: collapse; font-size: 13px; background: #fff; border-radius: 12px; overflow: hidden; border: 1px solid #e0e0e0; }
+  th { text-align: left; padding: 10px 14px; color: #666; font-weight: 500; border-bottom: 1px solid #e0e0e0; background: #fafafa; }
+  td { padding: 10px 14px; border-bottom: 1px solid #f0f0f0; vertical-align: top; }
+  tr:last-child td { border-bottom: none; }
+  .tag { font-size: 11px; padding: 2px 7px; border-radius: 99px; border: 1px solid #ddd; color: #555; background: #f5f5f5; }
+  .del-btn { padding: 4px 10px; background: none; color: #c0392b; border: 1px solid #e0b0b0; border-radius: 6px; font-size: 12px; cursor: pointer; }
+  .edit-input { width: 100%; padding: 5px 8px; border: 1px solid #ccc; border-radius: 6px; font-size: 13px; font-family: inherit; }
+  .save-btn { padding: 5px 12px; background: #111; color: #fff; border: none; border-radius: 6px; font-size: 12px; cursor: pointer; }
+
+  /* Logs */
+  .log-bar { display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; }
+  .log-bar span { font-size: 14px; font-weight: 500; }
+  .log-list { background: #fff; border: 1px solid #e0e0e0; border-radius: 12px; overflow: hidden; }
+  .log-row { display: flex; align-items: baseline; gap: 10px; padding: 10px 14px; border-bottom: 1px solid #f0f0f0; font-size: 13px; }
+  .log-row:last-child { border-bottom: none; }
+  .log-time { color: #aaa; font-size: 11px; min-width: 44px; }
+  .log-q { flex: 1; color: #111; }
+  .log-cat { font-size: 11px; padding: 2px 7px; border-radius: 99px; background: #f0f0f0; color: #555; }
+  .log-score { font-size: 12px; min-width: 36px; text-align: right; font-weight: 500; }
+  .score-high { color: #27ae60; }
+  .score-mid { color: #e67e22; }
+  .score-low { color: #c0392b; }
+  .empty { text-align: center; padding: 3rem; color: #aaa; font-size: 13px; }
+
+  /* Arch */
+  .arch-box { border: 1px solid #e0e0e0; border-radius: 10px; padding: 14px 16px; margin-bottom: 10px; background: #fff; }
+  .arch-box h3 { font-size: 13px; font-weight: 600; margin-bottom: 4px; color: #111; }
+  .arch-box p { font-size: 13px; color: #555; line-height: 1.5; }
+  .arch-label { display: inline-block; font-size: 11px; font-weight: 600; padding: 2px 8px; border-radius: 99px; margin-bottom: 6px; }
+  .lb { background: #e8f0fe; color: #1a3c8f; }
+  .lg { background: #e6f4ea; color: #1e6b3c; }
+  .la { background: #fef3e2; color: #7a4200; }
+  .arrow { text-align: center; color: #ccc; font-size: 20px; margin: -2px 0; }
+</style>
+</head>
+<body>
+<div class="container">
+
+  <div class="header">
+    <h1>MindMatch FAQ Assistant</h1>
+    <p>RAG demo — 10 FAQ entries · vector search · Claude API</p>
+  </div>
+
+  <div class="tabs">
+    <button class="tab active" onclick="switchTab('chat', this)">Chat widget</button>
+    <button class="tab" onclick="switchTab('admin', this)">Admin panel</button>
+    <button class="tab" onclick="switchTab('logs', this)">Query logs</button>
+    <button class="tab" onclick="switchTab('arch', this)">Architecture</button>
+  </div>
+
+  <!-- CHAT -->
+  <div id="panel-chat" class="panel active">
+    <div class="chat-window">
+      <div class="chat-messages" id="chat-msgs">
+        <div class="msg bot">Hi! I'm the MindMatch assistant. Ask me anything about finding a therapist, pricing, how sessions work, or privacy.</div>
+      </div>
+      <div class="suggestions">
+        <button class="sug-btn" onclick="sendSug(this)">How do I find a therapist?</button>
+        <button class="sug-btn" onclick="sendSug(this)">How much does it cost?</button>
+        <button class="sug-btn" onclick="sendSug(this)">Is my data private?</button>
+        <button class="sug-btn" onclick="sendSug(this)">Can I do therapy online?</button>
+      </div>
+      <div class="chat-input-row">
+        <input id="chat-input" placeholder="Ask a question..." onkeydown="if(event.key==='Enter') sendChat()" />
+        <button id="send-btn" onclick="sendChat()">Send</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ADMIN -->
+  <div id="panel-admin" class="panel">
+    <div class="admin-bar">
+      <span>FAQ Knowledge Base <span id="faq-count" style="font-weight:400;color:#888;font-size:12px;margin-left:6px;">10 entries</span></span>
+      <button class="add-btn" onclick="addRow()">+ Add entry</button>
+    </div>
+    <table>
+      <thead><tr><th>Question</th><th>Answer</th><th>Category</th><th></th></tr></thead>
+      <tbody id="faq-tbody"></tbody>
+    </table>
+  </div>
+
+  <!-- LOGS -->
+  <div id="panel-logs" class="panel">
+    <div class="log-bar">
+      <span>Query log <span id="log-count" style="font-weight:400;color:#888;font-size:12px;margin-left:6px;">0 queries</span></span>
+      <span style="font-size:12px;color:#aaa;">Score below 70% = unanswered</span>
+    </div>
+    <div class="log-list" id="log-list">
+      <div class="empty">No queries yet — ask something in the chat tab.</div>
+    </div>
+  </div>
+
+  <!-- ARCHITECTURE -->
+  <div id="panel-arch" class="panel">
+    <div class="arch-box">
+      <span class="arch-label lb">1. User query</span>
+      <h3>Embed the question</h3>
+      <p>The user's question is converted to a vector using an embedding model. In production this uses OpenAI text-embedding-3-small or Supabase AI. Takes ~50ms.</p>
+    </div>
+    <div class="arrow">↓</div>
+    <div class="arch-box">
+      <span class="arch-label lb">2. Vector search</span>
+      <h3>pgvector cosine similarity</h3>
+      <p>Supabase runs <code>SELECT ... ORDER BY embedding &lt;=&gt; $query LIMIT 3</code> against your FAQ table. Returns the top 3 matches with similarity scores.</p>
+    </div>
+    <div class="arrow">↓</div>
+    <div class="arch-box">
+      <span class="arch-label lg">3. Context injection</span>
+      <h3>Build the LLM prompt</h3>
+      <p>Top 3 FAQ entries are injected into a system prompt. If similarity is below 0.70, the bot says it doesn't know rather than hallucinating.</p>
+    </div>
+    <div class="arrow">↓</div>
+    <div class="arch-box">
+      <span class="arch-label lg">4. Claude API</span>
+      <h3>Generate natural response</h3>
+      <p>Claude Haiku receives the context and user question. Typical total latency: 1.2–2.5 seconds end to end.</p>
+    </div>
+    <div class="arrow">↓</div>
+    <div class="arch-box">
+      <span class="arch-label la">5. Logging</span>
+      <h3>Save to database</h3>
+      <p>Query, matched FAQ, similarity score, and response are saved. Low-score queries are flagged so admins know what's missing from the knowledge base.</p>
+    </div>
+  </div>
+
+</div>
+
+<script>
+const FAQ_DATA = [
+  { id:1, q:"How do I find the right therapist?", a:"Use our filters to narrow by specialty, therapy style, and language. We recommend watching intro videos before booking a free 15-minute consultation.", cat:"Getting started" },
+  { id:2, q:"How much does therapy cost?", a:"Sessions range $60–$180 depending on the therapist. We support sliding-scale pricing and most major insurance plans.", cat:"Pricing" },
+  { id:3, q:"Is my data private?", a:"Yes. All session data is encrypted end-to-end. We comply with HIPAA and never share your information with third parties.", cat:"Privacy" },
+  { id:4, q:"What therapy types are available?", a:"CBT, DBT, EMDR, psychodynamic, ACT and more. Filter by modality in search.", cat:"Therapy types" },
+  { id:5, q:"Can I do therapy online?", a:"Yes. Online sessions run through our encrypted video platform — no third-party apps needed.", cat:"Sessions" },
+  { id:6, q:"How do I cancel an appointment?", a:"Cancel or reschedule up to 24 hours before your session at no charge via your dashboard.", cat:"Appointments" },
+  { id:7, q:"What if I don't connect with my therapist?", a:"Switch at any time — Settings → My therapist → Request change. We'll help you find a better match at no cost.", cat:"Getting started" },
+  { id:8, q:"Does MindMatch accept insurance?", a:"We accept Blue Cross, Aetna, Cigna, United Health, and others. Enter your insurance details during signup.", cat:"Pricing" },
+  { id:9, q:"How long is a session?", a:"Standard sessions are 50 minutes. Some therapists offer 80-minute extended sessions.", cat:"Sessions" },
+  { id:10, q:"Is MindMatch suitable for children?", a:"Yes. We have therapists specializing in child therapy ages 6–17. Parental consent is required for minors.", cat:"Getting started" },
+];
+
+let faqData = [...FAQ_DATA];
+let logs = [];
+
+// --- CHAT ---
+async function generateResponse(question) {
+  const resp = await fetch('/api/ask', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ question })
+  });
+  const data = await resp.json();
+  return data;
+}
+
+function addMsg(role, text, sources) {
+  const msgs = document.getElementById('chat-msgs');
+  const d = document.createElement('div');
+  d.className = 'msg ' + role;
+  d.textContent = text;
+  if (sources && sources.length) {
+    const chips = document.createElement('div');
+    chips.className = 'source-chips';
+    sources.forEach(s => {
+      const c = document.createElement('span');
+      c.className = 'chip';
+      c.textContent = s.cat + ' · ' + Math.round(s.score * 100) + '%';
+      chips.appendChild(c);
+    });
+    d.appendChild(chips);
+  }
+  msgs.appendChild(d);
+  msgs.scrollTop = msgs.scrollHeight;
+  return d;
+}
+
+async function sendChat() {
+  const input = document.getElementById('chat-input');
+  const question = input.value.trim();
+  if (!question) return;
+  input.value = '';
+  document.getElementById('send-btn').disabled = true;
+
+  addMsg('user', question);
+  const thinking = addMsg('bot', 'Thinking…');
+  thinking.classList.add('thinking');
+
+  try {
+    const result = await generateResponse(question);
+    thinking.remove();
+    addMsg('bot', result.answer, result.sources);
+    logQuery(question, result.sources);
+  } catch (e) {
+    thinking.remove();
+    addMsg('bot', 'Something went wrong. Make sure the server is running.');
+  }
+
+  document.getElementById('send-btn').disabled = false;
+  input.focus();
+}
+
+function sendSug(btn) {
+  document.getElementById('chat-input').value = btn.textContent;
+  sendChat();
+}
+
+// --- LOGS ---
+function logQuery(question, sources) {
+  const now = new Date();
+  const time = now.getHours().toString().padStart(2,'0') + ':' + now.getMinutes().toString().padStart(2,'0');
+  const score = sources && sources.length ? sources[0].score : 0;
+  const cat = sources && sources.length ? sources[0].cat : 'Unknown';
+  logs.unshift({ time, question, score, cat });
+  renderLogs();
+}
+
+function renderLogs() {
+  document.getElementById('log-count').textContent = logs.length + ' quer' + (logs.length === 1 ? 'y' : 'ies');
+  const el = document.getElementById('log-list');
+  if (!logs.length) { el.innerHTML = '<div class="empty">No queries yet.</div>'; return; }
+  el.innerHTML = logs.map(l => {
+    const pct = Math.round(l.score * 100);
+    const cls = pct >= 80 ? 'score-high' : pct >= 68 ? 'score-mid' : 'score-low';
+    return `<div class="log-row">
+      <span class="log-time">${l.time}</span>
+      <span class="log-q">${l.question}</span>
+      <span class="log-cat">${l.cat}</span>
+      <span class="log-score ${cls}">${pct}%</span>
+    </div>`;
+  }).join('');
+}
+
+// --- ADMIN ---
+function renderAdmin() {
+  document.getElementById('faq-count').textContent = faqData.length + ' entries';
+  document.getElementById('faq-tbody').innerHTML = faqData.map(f => `
+    <tr>
+      <td style="max-width:200px">${f.q}</td>
+      <td style="max-width:300px;color:#666">${f.a.substring(0,80)}…</td>
+      <td><span class="tag">${f.cat}</span></td>
+      <td><button class="del-btn" onclick="deleteRow(${f.id})">Delete</button></td>
+    </tr>
+  `).join('');
+}
+
+function deleteRow(id) {
+  faqData = faqData.filter(f => f.id !== id);
+  renderAdmin();
+}
+
+function addRow() {
+  const tbody = document.getElementById('faq-tbody');
+  const tempId = Date.now();
+  const tr = document.createElement('tr');
+  tr.id = 'new-' + tempId;
+  tr.style.background = '#f0f7ff';
+  tr.innerHTML = `
+    <td><input class="edit-input" id="nq-${tempId}" placeholder="Question…"></td>
+    <td><textarea class="edit-input" id="na-${tempId}" rows="2" placeholder="Answer…"></textarea></td>
+    <td><input class="edit-input" id="nc-${tempId}" placeholder="Category" style="width:100%"></td>
+    <td><button class="save-btn" onclick="saveRow(${tempId})">Save</button></td>`;
+  tbody.insertBefore(tr, tbody.firstChild);
+  document.getElementById('nq-' + tempId).focus();
+}
+
+function saveRow(tempId) {
+  const q = document.getElementById('nq-' + tempId).value.trim();
+  const a = document.getElementById('na-' + tempId).value.trim();
+  const cat = document.getElementById('nc-' + tempId).value.trim() || 'General';
+  if (!q || !a) { alert('Please fill in question and answer.'); return; }
+  faqData.push({ id: Date.now(), q, a, cat });
+  renderAdmin();
+}
+
+// --- TABS ---
+function switchTab(name, btn) {
+  document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+  document.querySelectorAll('.panel').forEach(p => p.classList.remove('active'));
+  btn.classList.add('active');
+  document.getElementById('panel-' + name).classList.add('active');
+}
+
+renderAdmin();
+</script>
+</body>
+</html>
