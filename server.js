@@ -4,8 +4,9 @@ const app = express();
 
 app.use(cors());
 app.use(express.json());
-app.use(express.static('public')); // serves your frontend
+app.use(express.static('public')); // serves your frontend if any
 
+// FAQ Data
 const FAQ_DATA = [
   { id:1, q:"How do I find the right therapist?", a:"Use our filters to narrow by specialty, therapy style, and language. We recommend watching intro videos before booking a free 15-minute consultation.", cat:"Getting started" },
   { id:2, q:"How much does therapy cost?", a:"Sessions range $60–$180 depending on the therapist. We support sliding-scale pricing and most major insurance plans.", cat:"Pricing" },
@@ -19,7 +20,7 @@ const FAQ_DATA = [
   { id:10, q:"Is MindMatch suitable for children?", a:"Yes. We have therapists specializing in child therapy (ages 6–17). Parental consent is required for minors.", cat:"Getting started" },
 ];
 
-// Simple keyword similarity (production would use real embeddings)
+// Simple keyword similarity function
 function getSimilarity(query, faqQ, faqA) {
   const normalize = s => s.toLowerCase().replace(/[^a-z0-9 ]/g,'').split(' ').filter(w=>w.length>2);
   const qWords = new Set(normalize(query));
@@ -29,6 +30,12 @@ function getSimilarity(query, faqQ, faqA) {
   return Math.min(0.55 + (matches / Math.max(qWords.size, 1)) * 1.8, 0.99);
 }
 
+// Health check route (helpful for Railway)
+app.get('/', (req, res) => {
+  res.send('MindMatch FAQ Chatbot is alive! ✅');
+});
+
+// Main FAQ Ask Endpoint
 app.post('/api/ask', async (req, res) => {
   const { question } = req.body;
   if (!question) return res.status(400).json({ error: 'No question provided' });
@@ -52,9 +59,9 @@ app.post('/api/ask', async (req, res) => {
         'anthropic-version': '2023-06-01'
       },
       body: JSON.stringify({
-        model: 'claude-haiku-4-5-20251001',
+        model: 'claude-3-haiku-20240307',   // Fixed model name (use correct one)
         max_tokens: 300,
-        system: `You are a helpful assistant for MindMatch, a therapist search platform. Answer using ONLY this FAQ context. Be warm and concise. If context doesn't cover the question, say you're not sure and suggest contacting support.\n\nFAQ Context:\n${context}`,
+        system: `You are a helpful assistant for MindMatch, a therapist search platform. Answer using ONLY this FAQ context. Be warm, empathetic and concise. If the context doesn't cover the question, say you're not sure and suggest contacting support.\n\nFAQ Context:\n${context}`,
         messages: [{ role: 'user', content: question }]
       })
     });
@@ -62,7 +69,6 @@ app.post('/api/ask', async (req, res) => {
     const data = await response.json();
     const answer = data.content?.[0]?.text || "I'm not sure about that. Please contact our support team.";
 
-    // 4. Log query
     console.log(`[QUERY] "${question}" → top match: "${ranked[0].q}" (${Math.round(ranked[0].score*100)}%)`);
 
     res.json({
@@ -70,8 +76,14 @@ app.post('/api/ask', async (req, res) => {
       sources: ranked.filter(r => r.score > 0.62).map(r => ({ cat: r.cat, score: r.score }))
     });
   } catch (err) {
+    console.error("Claude API Error:", err.message);
     res.status(500).json({ error: 'API error', details: err.message });
   }
 });
 
-app.listen(3000, () => console.log('Running on http://localhost:3000'));
+// ✅ FIXED: Proper Railway-compatible listen
+const PORT = process.env.PORT || 3000;
+
+app.listen(PORT, '0.0.0.0', () => {
+  console.log(`🚀 MindMatch Chatbot is running on http://0.0.0.0:${PORT}`);
+});
