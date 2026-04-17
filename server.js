@@ -51,23 +51,24 @@ app.post('/api/ask', async (req, res) => {
 
   // 3. Call Claude API
   try {
-    const response = await fetch('https://api.anthropic.com/v1/messages', {
+    const response = await fetch('https://api.groq.com/openai/v1/chat/completions', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        'x-api-key': process.env.ANTHROPIC_API_KEY,
-        'anthropic-version': '2023-06-01'
+        'Authorization': `Bearer ${process.env.GROQ_API_KEY}`
       },
       body: JSON.stringify({
-        model: 'claude-3-haiku-20240307',   // Fixed model name (use correct one)
+        model: 'llama-3.1-8b-instant',
         max_tokens: 300,
-        system: `You are a helpful assistant for MindMatch, a therapist search platform. Answer using ONLY this FAQ context. Be warm, empathetic and concise. If the context doesn't cover the question, say you're not sure and suggest contacting support.\n\nFAQ Context:\n${context}`,
-        messages: [{ role: 'user', content: question }]
+        messages: [
+          { role: 'system', content: `You are a helpful assistant for MindMatch, a therapist search platform. Answer using ONLY this FAQ context. Be warm and concise. If context doesn't cover the question, say you're not sure and suggest contacting support.\n\nFAQ Context:\n${context}` },
+          { role: 'user', content: question }
+        ]
       })
     });
 
     const data = await response.json();
-    const answer = data.content?.[0]?.text || "I'm not sure about that. Please contact our support team.";
+    const answer = data.choices?.[0]?.message?.content || "I'm not sure about that.;
 
     console.log(`[QUERY] "${question}" → top match: "${ranked[0].q}" (${Math.round(ranked[0].score*100)}%)`);
 
