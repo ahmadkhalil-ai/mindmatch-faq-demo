@@ -68,7 +68,7 @@ app.post('/api/ask', async (req, res) => {
     });
 
     const data = await response.json();
-    const answer = data.choices?.[0]?.message?.content || "I'm not sure about that.;
+    const answer = data.choices?.[0]?.message?.content || "I'm not sure about that.";
 
     console.log(`[QUERY] "${question}" → top match: "${ranked[0].q}" (${Math.round(ranked[0].score*100)}%)`);
 
